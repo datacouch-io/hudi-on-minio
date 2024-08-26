@@ -30,8 +30,9 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
+    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
+    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
-    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -48,12 +49,6 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 spark.sparkContext.setLogLevel("ERROR")
 
 db_name = "default"
-InventoryPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Inventory"
-Order_ItemPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Order_Item"
-OrderPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Order"
-PaymentPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Payment"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
-ShipmentPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Shipment"
 UserPath = f"s3a://global-emart/hudi/database={db_name}/table_name=User"
 
 # Data for the new user
@@ -79,11 +74,9 @@ def insert_to_hudi(spark_df,
     hudi_options = {
         'hoodie.table.name': table_name,
         'hoodie.datasource.write.table.type': table_type,
-        'hoodie.datasource.write.table.name': table_name,
         'hoodie.datasource.write.operation': method,
 
         "hoodie.datasource.hive_sync.database": db_name,
-        "hoodie.datasource.hive_sync.table": table_name,
         "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
         "hoodie.datasource.hive_sync.mode": "hms",
         "hoodie.datasource.hive_sync.enable": "true",

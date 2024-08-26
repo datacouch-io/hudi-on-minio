@@ -30,8 +30,9 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
+    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
+    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
-    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -52,7 +53,7 @@ Inventory_spark_df = spark.read.option(
 # Function to write a Spark DataFrame to Hudi
 
 
-def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='COPY_ON_WRITE'):
+def write_to_hudi(spark_df, table_name, db_name, method, table_type='COPY_ON_WRITE'):
     # Define the path for the Hudi table in S3
     path = f"s3a://global-emart/hudi/database={db_name}/table_name={table_name}"
 
@@ -60,10 +61,8 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
     hudi_options = {
         'hoodie.table.name': table_name,
         'hoodie.datasource.write.table.type': table_type,
-        'hoodie.datasource.write.table.name': table_name,
         'hoodie.datasource.write.operation': method,
         "hoodie.datasource.hive_sync.database": db_name,
-        "hoodie.datasource.hive_sync.table": table_name,
         "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
         "hoodie.datasource.hive_sync.mode": "hms",
         "hoodie.datasource.hive_sync.enable": "true",
@@ -81,4 +80,4 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
 
 # Writing different datasets to Hudi
 write_to_hudi(spark_df=Inventory_spark_df,
-              db_name="default", table_name="Inventory")
+              db_name="default", method='upsert', table_name="Inventory")

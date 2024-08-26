@@ -1,5 +1,4 @@
 try:
-    from pyspark.sql.types import StructType, StructField, StringType, DateType, DoubleType
     import os  # Operating system interface
     import sys  # System-specific parameters and functions
     import uuid  # Universal Unique Identifier
@@ -50,29 +49,55 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 spark.sparkContext.setLogLevel("ERROR")
 
 db_name = "default"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
+UserPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Inventory"
 
-# New data for products
+# Data for the new user
 data = [
-    ('1', 'Laptop', 'High-performance laptop',
-     'Electronics', '1200.00', '1001', '2024-05-28'),
-    ('2', 'Smartphone', 'Latest model smartphone',
-     'Electronics', '800.00', '1002', '2024-05-28'),
-    # Add more products as needed
+    ('5001', '63', '92', '2023-04-12 02:48:37')
 ]
 
-columns = ["product_id", "name", "description",
-           "category", "price", "seller_id", "listing_date"]
-product_df = spark.createDataFrame(data, columns)
+columns = ['inventory_id', 'product_id',
+           'quantity_available', 'last_update_date']
+user_df = spark.createDataFrame(data, columns)
+user_df.printSchema()
 
-# Hudi configuration
-hudi_options = {
-    'hoodie.table.name': 'product_table',
-    'hoodie.datasource.write.recordkey.field': 'product_id',
-    'hoodie.datasource.write.precombine.field': 'listing_date',
-    'hoodie.datasource.write.operation': 'insert_overwrite_table',
-}
 
-# Write to Hudi table
-product_df.write.format("hudi").options(
-    **hudi_options).mode("overwrite").save(ProductPath)
+def insert_to_hudi(spark_df,
+                   table_name,
+                   db_name,
+                   method='insert',
+                   table_type='COPY_ON_WRITE'
+                   ):
+    path = f"s3a://global-emart/hudi/database={db_name}/table_name={table_name}"
+
+    hudi_options = {
+        'hoodie.table.name': table_name,
+        'hoodie.datasource.write.table.type': table_type,
+        'hoodie.datasource.write.operation': method,
+
+        "hoodie.datasource.hive_sync.database": db_name,
+        "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
+        "hoodie.datasource.hive_sync.mode": "hms",
+        "hoodie.datasource.hive_sync.enable": "true",
+    }
+
+    print("\n")
+    print(path)
+    print("\n")
+
+    spark_df.write.format("hudi"). \
+        options(**hudi_options). \
+        mode("append"). \
+        save(path)
+
+
+try:
+    insert_to_hudi(
+        spark_df=user_df,
+        db_name="default",
+        table_name="Inventory"
+    )
+    print("Inserted")
+
+except Exception as e:
+    print("error", e)

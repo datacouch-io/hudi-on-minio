@@ -28,8 +28,9 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
+    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
+    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
-    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service

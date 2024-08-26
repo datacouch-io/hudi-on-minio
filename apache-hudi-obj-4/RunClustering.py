@@ -43,7 +43,7 @@ spark.sparkContext.setLogLevel("ERROR")
 # Function to write a Spark DataFrame to Hudi with optional clustering
 
 
-def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='COPY_ON_WRITE', clustering_key=None):
+def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='COPY_ON_WRITE'):
     # Define the path for the Hudi table in S3
     path = f"s3a://global-emart/hudi/database={db_name}/table_name={table_name}"
 
@@ -56,11 +56,14 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
         "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
         "hoodie.datasource.hive_sync.mode": "hms",
         "hoodie.datasource.hive_sync.enable": "true",
-    }
 
-    # Add clustering key if specified
-    if clustering_key:
-        hudi_options['hoodie.datasource.write.clustering.key'] = clustering_key
+        # clustering options
+        "hoodie.clustering.inline": "true",
+        "hoodie.clustering.inline.max.commits": "4",
+        "hoodie.clustering.plan.strategy.target.file.max.bytes": "1073741824",
+        "hoodie.clustering.plan.strategy.small.file.limit": "629145600",
+        "hoodie.clustering.plan.strategy.sort.columns": "payment_method",
+    }
 
     # Print the path for debugging purposes
     print("\n")
@@ -78,6 +81,6 @@ Payment_spark_df = spark.read.option(
 
 # Write Payments.csv to Hudi with clustering on 'payment_method'
 write_to_hudi(spark_df=Payment_spark_df,
-              db_name="default", table_name="PaymentClustered", clustering_key='payment_method')
+              db_name="default", table_name="PaymentClustered")
 
 print("\n Payments data has been uploaded to the Minio bucket as a Hudi table with clustering")

@@ -1,5 +1,4 @@
 try:
-    from pyspark.sql.types import StructType, StructField, StringType, DateType, DoubleType
     import os  # Operating system interface
     import sys  # System-specific parameters and functions
     import uuid  # Universal Unique Identifier
@@ -16,7 +15,9 @@ try:
     print("Imports loaded ")
 
 except Exception as e:
-    print("error", e)  # Print any errors that occur during import
+    # Print any errors that occur during importfrom pyspark.sql import SparkSession
+    print("error", e)
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType
 
 # Constants for Hudi and Spark versions
 HUDI_VERSION = '0.14.0'
@@ -49,30 +50,45 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 
 spark.sparkContext.setLogLevel("ERROR")
 
-db_name = "default"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
+# Define the schema for the inventory data
+schema = StructType([
+    StructField("inventory_id", IntegerType(), True),
+    StructField("product_id", IntegerType(), True),
+    StructField("quantity_available", IntegerType(), True),
+    StructField("last_update_date", StringType(), True),
+])
 
-# New data for products
-data = [
-    ('1', 'Laptop', 'High-performance laptop',
-     'Electronics', '1200.00', '1001', '2024-05-28'),
-    ('2', 'Smartphone', 'Latest model smartphone',
-     'Electronics', '800.00', '1002', '2024-05-28'),
-    # Add more products as needed
-]
+# Load the existing inventory data from parquet
+input_path = "DataSets/DataLake/Inventory.csv"
+df = spark.read.format("parquet").option(
+    "header", "true").schema(schema).load(input_path)
 
-columns = ["product_id", "name", "description",
-           "category", "price", "seller_id", "listing_date"]
-product_df = spark.createDataFrame(data, columns)
-
-# Hudi configuration
+# Define Hudi table options
 hudi_options = {
-    'hoodie.table.name': 'product_table',
-    'hoodie.datasource.write.recordkey.field': 'product_id',
-    'hoodie.datasource.write.precombine.field': 'listing_date',
-    'hoodie.datasource.write.operation': 'insert_overwrite_table',
+    'hoodie.table.name': 'inventory_bootstrap',
+    'hoodie.datasource.write.recordkey.field': 'inventory_id',
+    'hoodie.datasource.write.partitionpath.field': 'quantity_available',
+    'hoodie.datasource.write.precombine.field': 'product_id',
+    'hoodie.datasource.write.operation': 'bootstrap',
+
+    'hoodie.bootstrap.base.path': 's3a://global-emart/hudi/database=default/table_name=Inventory',
+    'hoodie.datasource.write.table.type': 'COPY_ON_WRITE',  # or 'MERGE_ON_READ'
+    'hoodie.datasource.hive_sync.enable': 'true',
+    'hoodie.datasource.hive_sync.database': 'default',
+    'hoodie.datasource.hive_sync.table': 'inventory_bootstrap',
+    'hoodie.datasource.hive_sync.partition_fields': 'quantity_available',
+    "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
+    "hoodie.datasource.hive_sync.mode": "hms",
+    "hoodie.datasource.hive_sync.enable": "true",
 }
 
-# Write to Hudi table
-product_df.write.format("hudi").options(
-    **hudi_options).mode("overwrite").save(ProductPath)
+# Define the target path for the Hudi table
+hudi_target_path = "s3a://global-emart/hudi/database=default/table_name=inventory_bootstrap"
+
+# Perform the Bootstrap Write operation
+df.write.format("hudi").options(
+    **hudi_options).mode("overwrite").save(hudi_target_path)
+
+# Verify the result by loading the Hudi table
+bootstrapped_df = spark.read.format("hudi").load(hudi_target_path)
+bootstrapped_df.show()

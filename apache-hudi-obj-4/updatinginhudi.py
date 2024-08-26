@@ -1,5 +1,4 @@
 try:
-    from pyspark.sql.types import StructType, StructField, StringType, DateType, DoubleType
     import os  # Operating system interface
     import sys  # System-specific parameters and functions
     import uuid  # Universal Unique Identifier
@@ -12,6 +11,7 @@ try:
     from datetime import datetime  # Date and time class
     import random  # Generate pseudo-random numbers
     import pandas as pd  # Pandas library for data manipulation
+    from pyspark.sql import SparkSession, Row
 
     print("Imports loaded ")
 
@@ -31,9 +31,8 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
-    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
-    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
+    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -49,30 +48,38 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 
 spark.sparkContext.setLogLevel("ERROR")
 
-db_name = "default"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
+df = spark.read.csv("DataSets/Inventory.csv", header=True, inferSchema=True)
 
-# New data for products
-data = [
-    ('1', 'Laptop', 'High-performance laptop',
-     'Electronics', '1200.00', '1001', '2024-05-28'),
-    ('2', 'Smartphone', 'Latest model smartphone',
-     'Electronics', '800.00', '1002', '2024-05-28'),
-    # Add more products as needed
+
+# Load the existing Hudi table
+existing_df = spark.read.format("hudi").load(
+    "s3a://global-emart/hudi/database=default/table_name=Inventory")
+
+# Create a DataFrame with the updated rows
+updated_rows = [
+    Row(inventory_id=1, product_id=285, quantity_available=41,
+        last_update_date='2023-04-16 04:13:31'),
+    Row(inventory_id=2, product_id=4467, quantity_available=60,
+        last_update_date='2023-02-04 11:13:24'),
+    Row(inventory_id=3, product_id=1533, quantity_available=31,
+        last_update_date='2023-03-28 16:11:23')
 ]
 
-columns = ["product_id", "name", "description",
-           "category", "price", "seller_id", "listing_date"]
-product_df = spark.createDataFrame(data, columns)
+updated_df = spark.createDataFrame(updated_rows)
 
-# Hudi configuration
+# Define Hudi options for upsert
 hudi_options = {
-    'hoodie.table.name': 'product_table',
-    'hoodie.datasource.write.recordkey.field': 'product_id',
-    'hoodie.datasource.write.precombine.field': 'listing_date',
-    'hoodie.datasource.write.operation': 'insert_overwrite_table',
+    "hoodie.table.name": "inventory_table",
+    "hoodie.datasource.write.table.type": "COPY_ON_WRITE",  # or "MERGE_ON_READ"
+    "hoodie.datasource.write.recordkey.field": "inventory_id",
+    "hoodie.datasource.write.precombine.field": "last_update_date",
+    "hoodie.datasource.write.operation": "upsert",
+    "hoodie.upsert.shuffle.parallelism": 2,
+    "hoodie.insert.shuffle.parallelism": 2
 }
 
-# Write to Hudi table
-product_df.write.format("hudi").options(
-    **hudi_options).mode("overwrite").save(ProductPath)
+# Upsert the updated DataFrame
+updated_df.write.format("hudi") \
+    .options(**hudi_options) \
+    .mode("append") \
+    .save("path/to/hudi/table")

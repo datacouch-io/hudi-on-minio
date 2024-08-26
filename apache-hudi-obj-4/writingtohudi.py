@@ -1,5 +1,4 @@
 try:
-    from pyspark.sql.types import StructType, StructField, StringType, DateType, DoubleType
     import os  # Operating system interface
     import sys  # System-specific parameters and functions
     import uuid  # Universal Unique Identifier
@@ -31,9 +30,8 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
-    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
-    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
+    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -49,30 +47,27 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 
 spark.sparkContext.setLogLevel("ERROR")
 
-db_name = "default"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
+df = spark.read.csv("DataSets/Inventory.csv", header=True, inferSchema=True)
 
-# New data for products
-data = [
-    ('1', 'Laptop', 'High-performance laptop',
-     'Electronics', '1200.00', '1001', '2024-05-28'),
-    ('2', 'Smartphone', 'Latest model smartphone',
-     'Electronics', '800.00', '1002', '2024-05-28'),
-    # Add more products as needed
-]
 
-columns = ["product_id", "name", "description",
-           "category", "price", "seller_id", "listing_date"]
-product_df = spark.createDataFrame(data, columns)
-
-# Hudi configuration
 hudi_options = {
-    'hoodie.table.name': 'product_table',
-    'hoodie.datasource.write.recordkey.field': 'product_id',
-    'hoodie.datasource.write.precombine.field': 'listing_date',
-    'hoodie.datasource.write.operation': 'insert_overwrite_table',
+    "hoodie.table.name": "inventory_table",
+    "hoodie.datasource.write.table.type": "COPY_ON_WRITE",  # or "MERGE_ON_READ"
+    "hoodie.datasource.write.recordkey.field": "inventory_id",
+    # No partitioning for this example
+    "hoodie.datasource.write.partitionpath.field": "",
+    "hoodie.datasource.write.precombine.field": "last_update_date",
+    "hoodie.datasource.write.operation": "upsert",  # Use "insert" for initial load
+    "hoodie.upsert.shuffle.parallelism": 2,
+    "hoodie.insert.shuffle.parallelism": 2,
+    "hoodie.datasource.hive_sync.database": "default",
+    "hoodie.datasource.hive_sync.table": "Inventory",
+    "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
+    "hoodie.datasource.hive_sync.mode": "hms",
+    "hoodie.datasource.hive_sync.enable": "true",
 }
 
-# Write to Hudi table
-product_df.write.format("hudi").options(
-    **hudi_options).mode("overwrite").save(ProductPath)
+df.write.format("hudi") \
+    .options(**hudi_options) \
+    .mode("overwrite") \
+    .save("s3a://global-emart/hudi/database=default/table_name=Inventory")

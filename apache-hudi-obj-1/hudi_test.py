@@ -27,17 +27,21 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
+    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
+    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
-    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
-spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", "http://minioserver:9000/")
+spark._jsc.hadoopConfiguration().set(
+    "fs.s3a.endpoint", "http://localhost:9000/")
 spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", "admin")
 spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", "password")
 spark._jsc.hadoopConfiguration().set("fs.s3a.path.style.access", "true")
 spark._jsc.hadoopConfiguration().set("fs.s3a.connection.ssl.enabled", "false")
-spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
-spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
+spark._jsc.hadoopConfiguration().set(
+    "fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
+                                     "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
 
 vehicles_spark_df = spark.read.option("header", "true").\
     csv('vehicles.csv')
@@ -54,11 +58,9 @@ def write_to_hudi(spark_df,
     hudi_options = {
         'hoodie.table.name': table_name,
         'hoodie.datasource.write.table.type': table_type,
-        'hoodie.datasource.write.table.name': table_name,
         'hoodie.datasource.write.operation': method,
 
         "hoodie.datasource.hive_sync.database": db_name,
-        "hoodie.datasource.hive_sync.table": table_name,
         "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
         "hoodie.datasource.hive_sync.mode": "hms",
         "hoodie.datasource.hive_sync.enable": "true",

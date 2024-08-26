@@ -31,8 +31,9 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
+    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
+    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
-    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -49,12 +50,7 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 spark.sparkContext.setLogLevel("ERROR")
 
 db_name = "default"
-InventoryPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Inventory"
-Order_ItemPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Order_Item"
-OrderPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Order"
-PaymentPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Payment"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
-ShipmentPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Shipment"
+
 UserPath = f"s3a://global-emart/hudi/database={db_name}/table_name=User"
 
 # Data for the partition to delete

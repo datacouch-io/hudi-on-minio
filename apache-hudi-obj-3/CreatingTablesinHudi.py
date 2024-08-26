@@ -93,16 +93,16 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
 # Writing different datasets to Hudi
 write_to_hudi(spark_df=Inventory_spark_df,
               db_name="default", table_name="Inventory")
-write_to_hudi(spark_df=Order_Item_spark_df,
-              db_name="default", table_name="Order_Item")
-write_to_hudi(spark_df=Order_spark_df, db_name="default", table_name="Order")
-write_to_hudi(spark_df=Payment_spark_df,
-              db_name="default", table_name="Payment")
-write_to_hudi(spark_df=Product_spark_df,
-              db_name="default", table_name="Product")
-write_to_hudi(spark_df=Shipment_spark_df,
-              db_name="default", table_name="Shipment")
-write_to_hudi(spark_df=User_spark_df, db_name="default", table_name="User")
+# write_to_hudi(spark_df=Order_Item_spark_df,
+#               db_name="default", table_name="Order_Item")
+# write_to_hudi(spark_df=Order_spark_df, db_name="default", table_name="Order")
+# write_to_hudi(spark_df=Payment_spark_df,
+#               db_name="default", table_name="Payment")
+# write_to_hudi(spark_df=Product_spark_df,
+#               db_name="default", table_name="Product")
+# write_to_hudi(spark_df=Shipment_spark_df,
+#               db_name="default", table_name="Shipment")
+# write_to_hudi(spark_df=User_spark_df, db_name="default", table_name="User")
 
 
 print("\n All the data has been uploaded to minio bucket as hudi tables")
