@@ -46,6 +46,9 @@ spark._jsc.hadoopConfiguration().set(
 spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
                                      "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
 
+spark.sparkContext.setLogLevel("ERROR")
+
+
 # Load datasets into Spark DataFrames
 Inventory_spark_df = spark.read.option(
     "header", "true").csv('DataSets/Inventory.csv')
@@ -81,3 +84,6 @@ def write_to_hudi(spark_df, table_name, db_name, method, table_type='COPY_ON_WRI
 # Writing different datasets to Hudi
 write_to_hudi(spark_df=Inventory_spark_df,
               db_name="default", method='upsert', table_name="Inventory")
+
+
+print("\n All the data has been uploaded to minio bucket as hudi tables")

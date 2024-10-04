@@ -57,11 +57,11 @@ existing_df = spark.read.format("hudi").load(
 
 # Create a DataFrame with the updated rows
 updated_rows = [
-    Row(inventory_id=1, product_id=285, quantity_available=41,
+    Row(inventory_id=1, product_id=286, quantity_available=41,
         last_update_date='2023-04-16 04:13:31'),
-    Row(inventory_id=2, product_id=4467, quantity_available=60,
+    Row(inventory_id=2, product_id=4468, quantity_available=60,
         last_update_date='2023-02-04 11:13:24'),
-    Row(inventory_id=3, product_id=1533, quantity_available=31,
+    Row(inventory_id=3, product_id=1534, quantity_available=31,
         last_update_date='2023-03-28 16:11:23')
 ]
 

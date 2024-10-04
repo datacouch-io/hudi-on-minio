@@ -1,5 +1,4 @@
 try:
-    from pyspark.sql.types import StructType, StructField, StringType, DateType, DoubleType
     import os  # Operating system interface
     import sys  # System-specific parameters and functions
     import uuid  # Universal Unique Identifier
@@ -8,10 +7,8 @@ try:
     from pyspark.sql import SparkSession  # Spark SQL session
     from pyspark import SparkConf, SparkContext  # Spark configuration and context
     from faker import Faker  # Data generation library
-    import datetime  # (Duplicate) Date and time manipulation
-    from datetime import datetime  # Date and time class
     import random  # Generate pseudo-random numbers
-    import pandas as pd  # Pandas library for data manipulation
+    import pandas as pd  # Import Pandas library for pretty printing
 
     print("Imports loaded ")
 
@@ -31,9 +28,8 @@ os.environ['PYSPARK_PYTHON'] = sys.executable
 spark = SparkSession.builder \
     .config('spark.serializer', 'org.apache.spark.serializer.KryoSerializer') \
     .config('spark.sql.extensions', 'org.apache.spark.sql.hudi.HoodieSparkSessionExtension') \
-    .config('spark.kryo.registrator', 'org.apache.spark.HoodieSparkKryoRegistrar ') \
-    .config('spark.sql.catalog.spark_catalog', 'org.apache.spark.sql.hudi.catalog.HoodieCatalog') \
     .config('className', 'org.apache.hudi') \
+    .config('spark.sql.hive.convertMetastoreParquet', 'false') \
     .getOrCreate()
 
 # Configure Spark session to connect to a local S3-compatible service
@@ -47,32 +43,26 @@ spark._jsc.hadoopConfiguration().set(
 spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
                                      "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider")
 
-spark.sparkContext.setLogLevel("ERROR")
-
+# Define the database name and paths for Hudi tables
 db_name = "default"
-ProductPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Product"
+InventoryPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Inventory"
 
-# New data for products
-data = [
-    ('1', 'Laptop', 'High-performance laptop',
-     'Electronics', '1200.00', '1001', '2024-05-28'),
-    ('2', 'Smartphone', 'Latest model smartphone',
-     'Electronics', '800.00', '1002', '2024-05-28'),
-    # Add more products as needed
-]
+# Load the Inventory Hudi table into a Spark DataFrame
+DataFrame = spark.read.format("hudi").load(InventoryPath)
+# DataFrame.show(5)  # Show the first 5 rows of the DataFrame
 
-columns = ["product_id", "name", "description",
-           "category", "price", "seller_id", "listing_date"]
-product_df = spark.createDataFrame(data, columns)
+# # Collect the DataFrame and take the last 5 rows
+# last_five_rows = DataFrame.collect()[-5:]
 
-# Hudi configuration
-hudi_options = {
-    'hoodie.table.name': 'product_table',
-    'hoodie.datasource.write.recordkey.field': 'product_id',
-    'hoodie.datasource.write.precombine.field': 'listing_date',
-    'hoodie.datasource.write.operation': 'insert_overwrite_table',
-}
+# # Print the last 5 rows
+# for row in last_five_rows:
+#     print(row)
 
-# Write to Hudi table
-product_df.write.format("hudi").options(
-    **hudi_options).mode("append").save(ProductPath)
+# Collect the last 5 rows as a list of Row objects
+last_five_rows = DataFrame.tail(5)
+
+# Create a new DataFrame from the last 5 rows
+last_five_df = spark.createDataFrame(last_five_rows)
+
+# Show the last 5 rows in a readable format
+last_five_df.show()

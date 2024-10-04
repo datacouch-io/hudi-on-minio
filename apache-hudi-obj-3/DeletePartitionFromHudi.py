@@ -66,6 +66,7 @@ hudi_options = {
     'hoodie.table.name': 'user_table',
     'hoodie.datasource.write.operation': 'delete_partition',
     'hoodie.datasource.write.partitionpath.field': 'country',
+    'hoodie.datasource.write.partitions.to.delete': 'Ireland',
 }
 
 # Write to Hudi table

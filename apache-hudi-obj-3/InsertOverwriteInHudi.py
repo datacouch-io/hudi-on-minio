@@ -71,7 +71,7 @@ user_df = spark.createDataFrame(data, columns)
 def insert_overwrite_to_hudi(spark_df,
                              table_name,
                              db_name,
-                             method='insert',
+                             method,
                              table_type='COPY_ON_WRITE'
                              ):
     path = f"s3a://global-emart/hudi/database={db_name}/table_name={table_name}"
@@ -93,14 +93,15 @@ def insert_overwrite_to_hudi(spark_df,
 
     spark_df.write.format("hudi"). \
         options(**hudi_options). \
-        mode("overwrite"). \
+        mode("append"). \
         save(path)
 
 
 insert_overwrite_to_hudi(
     spark_df=user_df,
     db_name="default",
-    table_name="User"
+    table_name="User",
+    method='insert_overwrite'
 )
 
 # Write to Hudi table

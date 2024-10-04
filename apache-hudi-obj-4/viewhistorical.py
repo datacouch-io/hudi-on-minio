@@ -1,19 +1,19 @@
 try:
-    import os  # Operating system interface
-    import sys  # System-specific parameters and functions
-    import uuid  # Universal Unique Identifier
-    import pyspark  # Apache Spark Python API
-    import datetime  # Date and time manipulation
-    from pyspark.sql import SparkSession  # Spark SQL session
-    from pyspark import SparkConf, SparkContext  # Spark configuration and context
-    from faker import Faker  # Data generation library
-    import random  # Generate pseudo-random numbers
-    import pandas as pd  # Import Pandas library for pretty printing
+    import os
+    import sys
+    import uuid
+    import pyspark
+    import datetime
+    from pyspark.sql import SparkSession
+    from pyspark import SparkConf, SparkContext
+    from faker import Faker
+    import random
+    import pandas as pd
 
     print("Imports loaded ")
 
 except Exception as e:
-    print("error", e)  # Print any errors that occur during import
+    print("error", e)
 
 # Constants for Hudi and Spark versions
 HUDI_VERSION = '0.14.0'
@@ -47,10 +47,15 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.aws.credentials.provider",
 db_name = "default"
 InventoryPath = f"s3a://global-emart/hudi/database={db_name}/table_name=Inventory"
 
-# Load the Inventory Hudi table into a Spark DataFrame
-DataFrame = spark.read.format("hudi").load(InventoryPath)
-DataFrame.show()  # Show the first 5 rows of the DataFrame
-
+# Load the historical data from a previous timestamp (Time Travel Query)
 DataFramePast = spark.read.format("hudi").option(
-    "as.of.instant", "2024-08-08 12:59:00.000").load(InventoryPath)
-DataFramePast.show()  # Show the first 5 rows of the DataFrame
+    "as.of.instant", "2024-09-26 16:38:00.000").load(InventoryPath)
+
+# Collect the last 5 rows of the past DataFrame
+last_five_rows_past = DataFramePast.tail(5)
+print(last_five_rows_past)
+# Create a new DataFrame from the last 5 rows of the past DataFrame
+last_five_df_past = spark.createDataFrame(last_five_rows_past)
+
+print("Last 5 rows of the historical table (as of 2024-09-26 16:38:00):")
+last_five_df_past.show()

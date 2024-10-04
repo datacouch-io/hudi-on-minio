@@ -59,9 +59,8 @@ schema = StructType([
 ])
 
 # Load the existing inventory data from parquet
-input_path = "DataSets/DataLake/Inventory.csv"
-df = spark.read.format("parquet").option(
-    "header", "true").schema(schema).load(input_path)
+# input_path = "DataSets/DataLake/Inventory.csv"
+df = spark.emptyDataFrame()
 
 # Define Hudi table options
 hudi_options = {
@@ -75,7 +74,6 @@ hudi_options = {
     'hoodie.datasource.write.table.type': 'COPY_ON_WRITE',  # or 'MERGE_ON_READ'
     'hoodie.datasource.hive_sync.enable': 'true',
     'hoodie.datasource.hive_sync.database': 'default',
-    'hoodie.datasource.hive_sync.table': 'inventory_bootstrap',
     'hoodie.datasource.hive_sync.partition_fields': 'quantity_available',
     "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
     "hoodie.datasource.hive_sync.mode": "hms",
@@ -87,7 +85,7 @@ hudi_target_path = "s3a://global-emart/hudi/database=default/table_name=inventor
 
 # Perform the Bootstrap Write operation
 df.write.format("hudi").options(
-    **hudi_options).mode("overwrite").save(hudi_target_path)
+    **hudi_options).mode("append").save(hudi_target_path)
 
 # Verify the result by loading the Hudi table
 bootstrapped_df = spark.read.format("hudi").load(hudi_target_path)
