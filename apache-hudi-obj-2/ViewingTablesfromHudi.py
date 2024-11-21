@@ -57,4 +57,7 @@ UserPath = f"s3a://global-emart/hudi/database={db_name}/table_name=User"
 # Load the Inventory Hudi table into a Spark DataFrame
 InventoryDF = spark.read.format("hudi").load(InventoryPath)
 InventoryDF['inventory_id', 'product_id', 'quantity_available',
-            'last_update_date'].show(5)  # Show the first 5 rows of the DataFrame
+            'last_update_date'].show(5)  
+
+# Show the first 5 rows of the DataFrame
+

@@ -62,13 +62,12 @@ Shipment_spark_df = spark.read.option(
 User_spark_df = spark.read.option("header", "true").csv('DataSets/User.csv')
 
 # Function to write a Spark DataFrame to Hudi
-
-
-def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='COPY_ON_WRITE'):
+def write_to_hudi(spark_df, table_name, db_name, key_field, precombine_field, method='insert', table_type='COPY_ON_WRITE'):
     # Define the path for the Hudi table in S3
     path = f"s3a://global-emart/hudi/database={db_name}/table_name={table_name}"
 
-    # Define Hudi-specific options for writing the data
+
+# Define Hudi-specific options for writing the data
     hudi_options = {
         'hoodie.table.name': table_name,
         'hoodie.datasource.write.table.type': table_type,
@@ -77,6 +76,8 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
         "hoodie.datasource.hive_sync.metastore.uris": "thrift://localhost:9083",
         "hoodie.datasource.hive_sync.mode": "hms",
         "hoodie.datasource.hive_sync.enable": "true",
+        "hoodie.datasource.write.recordkey.field": key_field,
+        "hoodie.datasource.write.precombine.field": precombine_field
     }
 
     # Print the path for debugging purposes
@@ -91,17 +92,16 @@ def write_to_hudi(spark_df, table_name, db_name, method='insert', table_type='CO
 
 # Writing different datasets to Hudi
 write_to_hudi(spark_df=Inventory_spark_df,
-              db_name="default", table_name="Inventory")
+              db_name="default", table_name="Inventory", key_field="inventory_id", precombine_field="last_update_date")
 write_to_hudi(spark_df=Order_Item_spark_df,
-              db_name="default", table_name="Order_Item")
-write_to_hudi(spark_df=Order_spark_df, db_name="default", table_name="Order")
+              db_name="default", table_name="Order_Item", key_field="order_item_id", precombine_field="quantity")
+write_to_hudi(spark_df=Order_spark_df, db_name="default", table_name="Order", key_field="order_id", precombine_field="order_date")
 write_to_hudi(spark_df=Payment_spark_df,
-              db_name="default", table_name="Payment")
+              db_name="default", table_name="Payment", key_field="transaction_id", precombine_field="payment_date")
 write_to_hudi(spark_df=Product_spark_df,
-              db_name="default", table_name="Product")
+              db_name="default", table_name="Product", key_field="product_id", precombine_field="listing_date")
 write_to_hudi(spark_df=Shipment_spark_df,
-              db_name="default", table_name="Shipment")
-write_to_hudi(spark_df=User_spark_df, db_name="default", table_name="User")
-
+              db_name="default", table_name="Shipment", key_field="shipment_id", precombine_field="shipment_date")
+write_to_hudi(spark_df=User_spark_df, db_name="default", table_name="User", key_field="user_id", precombine_field="last_login_date")
 
 print("\n All the data has been uploaded to minio bucket as hudi tables")
